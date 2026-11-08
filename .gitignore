@@ -1,0 +1,27 @@
+# Gradle / Android Studio
+.gradle/
+build/
+app/build/
+.idea/
+.kotlin/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Arquivos locais (caminho do SDK de cada PC)
+local.properties
+
+# Instaladores gerados (ficam nas Releases do GitHub, não no código)
+*.apk
+*.aab
+
+# Versão Windows (Python): ambiente, caches e programa gerado
+__pycache__/
+*.pyc
+windows/dist/
+*.zip
+
+# Sistema
+.DS_Store
+Thumbs.db
