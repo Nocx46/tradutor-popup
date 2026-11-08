@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tradutor Pop-up</string>
+    <string name="service_label">Tradutor Pop-up</string>
+    <string name="service_description">Mostra um botão flutuante. Ao tocar nele, abre um quadro transparente que lê o texto da área escolhida da tela e mostra a tradução em tempo real. Nenhum texto é enviado para fora do celular: a tradução é feita no próprio aparelho.</string>
+
+    <string name="title_source">Idioma do texto</string>
+    <string name="title_target">Traduzir para</string>
+    <string name="title_popup">Pop-up</string>
+    <string name="popup_switch">Ativar pop-up</string>
+    <string name="how_to_title">Como usar</string>
+    <string name="how_to">1. Escolha o idioma do texto (ou deixe no Automático).\n2. Ligue o pop-up.\n3. Abra qualquer site ou app e toque no botão flutuante 文A.\n4. Arraste a barra de cima para mover o quadro e a bolinha do canto para aumentar ou diminuir.\n5. A tradução aparece dentro do quadro, por cima do texto original.\n\nDica: um toque rápido na barra de cima troca o idioma do texto (Automático, Inglês, Japonês…).\nToque no botão 文A de novo (ou no ✕) para fechar o quadro.</string>
+</resources>
