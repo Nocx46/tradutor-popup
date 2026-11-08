@@ -100,6 +100,15 @@ powershell -ExecutionPolicy Bypass -File build.ps1
 ```
 Para rodar sem gerar o .exe: `pip install -r windows/requirements.txt` e `python windows/run.py`.
 
+## Versões
+
+| Versão | Plataforma | Novidades |
+|---|---|---|
+| v1.3 | 💻 Windows | Atalho na Área de Trabalho e no menu Iniciar; opção ⏻ Desligar o tradutor |
+| v1.2 | 💻 Windows | Primeira versão para PC (mesmo tradutor do celular) |
+| v1.1 | 📱 Android | Mangá melhor (balão inteiro, sem misturar vizinhos), correções de tradução, desligar rápido para apps de banco |
+| v1.0 | 📱 Android | Primeira versão: botão 文A, quadro móvel e tradução em vidro fosco |
+
 ## Limitações
 
 - **A tradução não é 100% correta**: o app usa só ferramentas gratuitas e offline (Google ML Kit no
