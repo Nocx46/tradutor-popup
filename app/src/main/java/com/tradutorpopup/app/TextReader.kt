@@ -13,7 +13,13 @@ data class Segment(val text: String, val rect: Rect)
  * Resultado da leitura: os textos e quanto do quadro (0 a 1) está coberto por imagens
  * (ex.: página de mangá). Se for muito, o texto está DENTRO da imagem e é preciso lê-la (OCR).
  */
-data class ReadResult(val segments: List<Segment>, val imageFraction: Float, val sensitive: Boolean = false)
+data class ReadResult(
+    val segments: List<Segment>,
+    val imageFraction: Float,
+    val sensitive: Boolean = false,
+    /** A barra de notificações (ou outra tela do sistema) está aberta por cima do quadro. */
+    val coveredBySystem: Boolean = false,
+)
 
 /**
  * Lê o texto que está visível dentro de uma área da tela, usando as informações de
@@ -42,8 +48,13 @@ object TextReader {
         for (w in windows) {
             if (w.type == AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY) continue // nosso pop-up
             if (w.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD) continue // teclado
-            if (w.type == AccessibilityWindowInfo.TYPE_SYSTEM) continue // barra de status/navegação
             val bounds = Rect().also { w.getBoundsInScreen(it) }
+            if (w.type == AccessibilityWindowInfo.TYPE_SYSTEM) {
+                // (a janela da barra fechada é só a faixa de cima; aberta, ocupa a tela toda)
+                // Barra de notificações aberta por cima de tudo: o quadro deve sumir
+                if (bounds.contains(area)) return ReadResult(emptyList(), 0f, coveredBySystem = true)
+                continue // barra de status/navegação
+            }
             if (!Rect.intersects(bounds, area)) continue
             val root = w.root ?: continue
             if (root.packageName == service.packageName) continue

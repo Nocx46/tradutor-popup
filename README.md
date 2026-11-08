@@ -7,6 +7,12 @@ flutuante e de um quadro que você move e redimensiona com o dedo.
 A tradução aparece **dentro do quadro, por cima do texto original**, em placas de vidro fosco
 no estilo dos widgets do iPhone — parecido com o Google Lens.
 
+> ⚠️ **A tradução não é 100% correta.** O app usa apenas ferramentas **gratuitas** que rodam
+> no próprio celular (Google ML Kit, offline). Elas são mais literais que tradutores pagos ou com IA,
+> podem errar expressões e gírias (ex.: "bow and arrow" → "arcos e setas") e, em imagens/mangá,
+> o leitor de texto às vezes troca letras. Use para **entender o sentido** do texto; para ajustar
+> expressões que se repetem, use as **Correções de tradução** do app.
+
 ## Funções
 
 - **Botão flutuante 文A** sobre qualquer app; toque para abrir/fechar o quadro.
@@ -14,7 +20,8 @@ no estilo dos widgets do iPhone — parecido com o Google Lens.
   Os toques passam através do quadro, então dá para rolar a página normalmente.
 - **Tradução por cima do original**, com a letra ajustada para caber; ao rolar a página, a tradução acompanha.
 - **🌐 Detecção automática do idioma** (ou escolha fixa). Um toque rápido na barra troca o idioma.
-- **Mangá, quadrinhos e imagens**: quando o quadro está sobre uma imagem, o app lê o texto de dentro dela (OCR).
+- **Mangá, quadrinhos e imagens**: quando o quadro está sobre uma imagem, o app lê o texto de dentro dela (OCR),
+  juntando as linhas de cada balão (sem misturar balões vizinhos) e remontando palavras quebradas com hífen.
 - **Correções de tradução** editáveis no app (`errado = certo`), ex.: `arcos e setas = arco e flecha`.
 - **Apps de banco**: o pop-up some sozinho em apps de banco/pagamento. Bancos como o Nubank bloqueiam
   apps de acessibilidade ligados — desligue o tradutor antes (toque e segure o 文A, ou use a chave do app /
@@ -54,5 +61,9 @@ Código em Kotlin, sem bibliotecas de interface externas. Android 8.0+ (efeito d
 
 ## Limitações
 
+- **A tradução não é 100% correta**: o app usa só ferramentas gratuitas e offline (Google ML Kit),
+  mais literais que tradutores pagos/com IA. Erros comuns: expressões e gírias traduzidas ao pé da letra,
+  letras trocadas na leitura de imagens (ex.: "Garnation" em vez de "carnation"), frases curtas fora de contexto.
+  Use as **correções** para ajustar expressões.
 - Só **Android** — o iPhone não permite que apps desenhem por cima de outros apps.
-- A tradução offline é mais literal que tradutores online; use as **correções** para ajustar expressões.
+- Apps de banco (ex.: Nubank) bloqueiam enquanto o tradutor está ligado — desligue antes de abrir o banco.

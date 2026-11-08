@@ -11,6 +11,7 @@ import androidx.annotation.RequiresApi
 import com.google.mlkit.common.MlKitException
 import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
@@ -21,6 +22,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
+import kotlin.math.abs
 import kotlin.math.max
 
 /**
@@ -39,6 +41,13 @@ class OcrReader {
         /** O leitor de imagens do ML Kit não reconhece o alfabeto russo (cirílico). */
         fun supports(lang: String) = lang != TranslateLanguage.RUSSIAN
         private const val INSET = 6
+
+        /** Segundas partes que normalmente formam palavra composta com hífen (o hífen fica). */
+        private val COMPOUND_PARTS = setOf(
+            "based", "like", "free", "type", "style", "made", "related", "friendly", "sized",
+            "level", "class", "rank", "time", "old", "year", "proof", "up", "in", "out", "off",
+            "on", "down", "over", "all", "self", "ex", "well", "half", "known", "looking",
+        )
         private val CJK = setOf(Character.UnicodeScript.HAN, Character.UnicodeScript.HIRAGANA, Character.UnicodeScript.KATAKANA)
     }
 
@@ -82,12 +91,15 @@ class OcrReader {
             val result = client(lang).process(InputImage.fromBitmap(bmp, 0)).await()
             val cjk = lang == TranslateLanguage.JAPANESE || lang == TranslateLanguage.CHINESE ||
                 (lang == Languages.AUTO && result.text.any { Character.UnicodeScript.of(it.code) in CJK })
-            result.textBlocks.mapNotNull { block ->
-                val box = block.boundingBox ?: return@mapNotNull null
-                val text = block.lines.joinToString(if (cjk) "" else " ") { it.text.trim() }
-                if (text.isBlank()) null
-                else Segment(text, Rect(box).apply { offset(origin.x, origin.y) })
-            }
+            // Trabalha LINHA por LINHA: o leitor às vezes junta num mesmo "bloco" linhas de dois
+            // balões vizinhos (lado a lado). Reagrupamos as linhas pela posição, balão por balão.
+            // E mais: balões lado a lado na mesma altura viram UMA linha só para o leitor
+            // ("a level-   in rein-"). Quebramos a linha onde há um espaço grande entre palavras.
+            val sep = if (cjk) "" else " "
+            val lines = result.textBlocks.flatMap { it.lines }.flatMap { line -> splitLine(line, sep) }
+                .map { Segment(it.text, Rect(it.rect).apply { offset(origin.x, origin.y) }) }
+            val merged = mergeBubbles(lines, sep)
+            merged
         } catch (e: MlKitException) {
             // O leitor de imagens ainda está sendo baixado pelo Google Play
             if (e.errorCode == MlKitException.UNAVAILABLE) modelMissing = true
@@ -97,6 +109,109 @@ class OcrReader {
         } finally {
             bmp.recycle()
         }
+    }
+
+    /**
+     * Divide uma linha lida em pedaços onde o espaço entre duas palavras é grande demais
+     * (mais que meia letra de altura) — sinal de que são dois balões diferentes lado a lado.
+     */
+    private fun splitLine(line: Text.Line, sep: String): List<Segment> {
+        val words = line.elements.filter { it.boundingBox != null && it.text.isNotBlank() }
+            .sortedBy { it.boundingBox!!.left }
+        if (words.isEmpty()) {
+            val box = line.boundingBox ?: return emptyList()
+            return if (line.text.isBlank()) emptyList() else listOf(Segment(line.text.trim(), Rect(box)))
+        }
+        val out = ArrayList<Segment>()
+        var text = StringBuilder(words[0].text)
+        var rect = Rect(words[0].boundingBox!!)
+        var prev = Rect(words[0].boundingBox!!)
+        for (w in words.drop(1)) {
+            val b = w.boundingBox!!
+            val gap = b.left - prev.right
+            val h = minOf(prev.height(), b.height())
+            // Espaço normal entre palavras ≈ 1/4 da altura da letra; balões vizinhos ficam bem mais longe.
+            // Outro sinal: a palavra seguinte está numa altura bem diferente (outro balão).
+            val otherHeight = abs(b.centerY() - prev.centerY()) > h * 0.4f
+            prev = Rect(b)
+            if (gap > h * 0.35f || otherHeight) {
+                out.add(Segment(text.toString().trim(), rect))
+                text = StringBuilder(w.text)
+                rect = Rect(b)
+            } else {
+                text.append(sep).append(w.text)
+                rect.union(b)
+            }
+        }
+        out.add(Segment(text.toString().trim(), rect))
+        return out.filter { it.text.isNotBlank() }
+    }
+
+    /**
+     * Junta as linhas de um balão. Em mangá as palavras são quebradas com hífen no fim da linha
+     * ("expla-" / "nations", "rein-" / "carnation"): aqui a palavra é remontada ("explanations").
+     * Se a segunda parte for uma palavra que costuma formar compostos ("level-" / "based"),
+     * o hífen fica ("level-based").
+     */
+    private fun joinLines(lines: List<String>, sep: String): String {
+        val sb = StringBuilder()
+        for (raw in lines) {
+            val line = raw.trim()
+            if (line.isEmpty()) continue
+            if (sb.isEmpty()) { sb.append(line); continue }
+            val endsWithHyphen = sb.last() == '-' || sb.last() == '‐' || sb.last() == '–'
+            val prevChar = if (sb.length >= 2) sb[sb.length - 2] else ' '
+            if (endsWithHyphen && prevChar.isLetter() && line.first().isLowerCase()) {
+                val nextWord = line.takeWhile { it.isLetter() }.lowercase()
+                if (nextWord in COMPOUND_PARTS) {
+                    sb.append(line) // "level-" + "based" → "level-based"
+                } else {
+                    sb.setLength(sb.length - 1) // tira o hífen
+                    sb.append(line) // "expla-" + "nations" → "explanations"
+                }
+            } else {
+                sb.append(sep).append(line)
+            }
+        }
+        return sb.toString()
+    }
+
+    /**
+     * O leitor às vezes divide um mesmo balão de fala em vários pedaços ("Para não mencionar" /
+     * "o novo" / "prazer da magia"). Traduzidos separados, perdem o sentido. Aqui juntamos os
+     * pedaços que estão um embaixo do outro, alinhados e bem próximos — o mesmo balão — numa frase só.
+     */
+    private fun mergeBubbles(blocks: List<Segment>, sep: String): List<Segment> {
+        if (blocks.size < 2) return blocks
+        // Cada grupo guarda também a última linha, para comparar a linha nova com a de cima
+        val groups = ArrayList<Pair<StringBuilder, Rect>>()
+        val lastLine = ArrayList<Rect>()
+        for (b in blocks.sortedWith(compareBy({ it.rect.top }, { it.rect.left }))) {
+            val r = b.rect
+            val idx = groups.indices.lastOrNull { gi ->
+                val g = groups[gi].second // a "coluna" do balão inteiro
+                val prev = lastLine[gi]    // a última linha que entrou nele
+                val overlapW = minOf(g.right, r.right) - maxOf(g.left, r.left)
+                val narrower = minOf(g.width(), r.width())
+                val lineH = minOf(prev.height(), r.height())
+                val gap = r.top - prev.bottom
+                // Mesma coluna do balão e logo abaixo da última linha (ou na mesma linha)
+                val centersClose = abs(g.centerX() - r.centerX()) <= maxOf(g.width(), r.width()) / 2
+                overlapW > narrower / 2 && centersClose && gap in -lineH..(lineH * 3 / 4 + 4)
+            }
+            val target = idx?.let { groups[it] }
+            if (idx != null) lastLine[idx] = Rect(r)
+            if (target != null) {
+                val joined = joinLines(listOf(target.first.toString(), b.text), sep)
+                target.first.setLength(0)
+                target.first.append(joined)
+                target.second.union(r)
+            } else {
+                groups.add(StringBuilder(b.text) to Rect(r))
+                lastLine.add(Rect(r))
+            }
+        }
+        return groups.map { (sb, rect) -> Segment(sb.toString().replace(Regex("\\s+"), " ").trim(), rect) }
     }
 
     /**

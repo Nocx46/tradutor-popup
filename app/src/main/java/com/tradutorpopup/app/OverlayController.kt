@@ -191,6 +191,7 @@ class OverlayController(
         safeAdd(frame!!, frameP)
         safeAdd(bar!!, barP)
         safeAdd(handle!!, handleP)
+        setBoxHidden(false)
         updateBarLabel()
         setStatus("Lendo o texto dentro do quadro…")
         bubble?.setBackgroundResource(R.drawable.bubble_bg_active)
@@ -225,7 +226,9 @@ class OverlayController(
             textSize = 14f
             typeface = Typeface.DEFAULT_BOLD
             maxLines = 1
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            // Quadro estreito: a letra diminui para "EN → PT" caber inteiro
+            setAutoSizeTextTypeUniformWithConfiguration(9, 14, 1, android.util.TypedValue.COMPLEX_UNIT_SP)
+            layoutParams = LinearLayout.LayoutParams(0, dp(24), 1f)
         }
         val close = TextView(service).apply {
             text = "✕"
@@ -395,6 +398,9 @@ class OverlayController(
 
         // 1) Texto "de verdade" da tela (sites, apps): funciona em todos os idiomas
         val read = withContext(Dispatchers.Default) { TextReader.read(service, area) }
+        // Barra de notificações aberta por cima: esconde o quadro inteiro até ela fechar
+        setBoxHidden(read.coveredBySystem)
+        if (read.coveredBySystem) return
         if (read.sensitive) {
             // App de banco/pagamento: não lê nem traduz nada
             if (lastSig != "sensitive") {
@@ -479,6 +485,17 @@ class OverlayController(
         val backdrop = try { ocr.captureBackdrop(service, area) } catch (_: Exception) { null }
         if (prefs.source == src && prefs.target == tgt) showTranslation(segments, translated, backdrop)
         else backdrop?.small?.recycle()
+    }
+
+    private var boxHidden = false
+
+    /** Some/volta com o quadro inteiro (barra, borda, tradução e bolinha) sem fechá-lo. */
+    private fun setBoxHidden(hidden: Boolean) {
+        if (hidden == boxHidden) return
+        boxHidden = hidden
+        val vis = if (hidden) View.INVISIBLE else View.VISIBLE
+        listOf(frame, bar, handle).forEach { it?.visibility = vis }
+        if (!hidden) lastSig = null // ao voltar, lê de novo
     }
 
     /** Quanto do quadro (0 a 1) está ocupado por texto "de verdade". */
