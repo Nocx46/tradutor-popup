@@ -16,6 +16,12 @@ local.properties
 *.apk
 *.aab
 
+# Versão Windows (Python): ambiente, caches e programa gerado
+__pycache__/
+*.pyc
+windows/dist/
+*.zip
+
 # Sistema
 .DS_Store
 Thumbs.db
