@@ -5,7 +5,7 @@ from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (QComboBox, QDialog, QFrame, QHBoxLayout, QLabel, QPlainTextEdit,
                                QPushButton, QVBoxLayout)
 
-from . import corrections, ocr
+from . import corrections, ocr, shortcuts
 from . import languages as L
 
 STYLE = """
@@ -41,6 +41,7 @@ def _label(text, obj=None, wrap=True):
 
 class SettingsWindow(QDialog):
     changed = Signal(str)  # chave que mudou
+    quit_requested = Signal()
 
     def __init__(self, settings):
         super().__init__(None, Qt.WindowCloseButtonHint | Qt.WindowTitleHint)
@@ -113,8 +114,30 @@ class SettingsWindow(QDialog):
         lay.addLayout(row)
         root.addWidget(card)
 
+        # --- atalho e desligar ---
+        card, lay = _card()
+        lay.addWidget(_label("Atalho e desligar", "h"))
+        lay.addWidget(_label("O atalho \"Tradutor Pop-up\" fica na Área de Trabalho e no menu Iniciar. "
+                             "Se o tradutor já estiver aberto, o atalho só abre o quadro.", "muted"))
+        row = QHBoxLayout()
+        self.sc_status = _label("", "muted")
+        sc = QPushButton("Criar atalho na Área de Trabalho")
+        sc.setObjectName("flat")
+        sc.clicked.connect(self._make_shortcut)
+        row.addWidget(self.sc_status, 1)
+        row.addWidget(sc)
+        lay.addLayout(row)
+        off = QPushButton("⏻  Desligar o tradutor")
+        off.setStyleSheet("QPushButton { background: #DC2626; } QPushButton:hover { background: #B91C1C; }")
+        off.clicked.connect(self.quit_requested.emit)
+        lay.addWidget(off)
+        lay.addWidget(_label("Desliga o programa por completo (some o botão 文A e o ícone perto do relógio). "
+                             "Para usar de novo, abra pelo atalho.", "muted"))
+        root.addWidget(card)
+
         root.addWidget(_label("A tradução não é 100% correta: o app usa só ferramentas gratuitas e offline. "
                               "Use para entender o sentido do texto.", "muted"))
+        self._refresh_shortcut()
 
     def _set(self, key, value):
         self.settings[key] = value
@@ -127,6 +150,17 @@ class SettingsWindow(QDialog):
         self.fix_status.setText(f"✓ {n} correç{'ão salva' if n == 1 else 'ões salvas'}." if n
                                 else "Nenhuma correção sua (as prontas continuam valendo).")
         self.changed.emit("corrections")
+
+    def _refresh_shortcut(self):
+        ok = shortcuts.exists_on_desktop()
+        self.sc_status.setText("✓ Atalho na Área de Trabalho" if ok else "Sem atalho na Área de Trabalho")
+
+    def _make_shortcut(self):
+        try:
+            shortcuts.create()
+            self.sc_status.setText("✓ Atalho criado na Área de Trabalho e no menu Iniciar")
+        except Exception as e:
+            self.sc_status.setText(f"⚠ {e}")
 
     def _refresh_ocr(self):
         avail = [t.lower().split("-")[0] for t in ocr.available_ocr_langs()]

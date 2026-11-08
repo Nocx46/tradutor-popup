@@ -2,14 +2,15 @@
 import ctypes
 import os
 import sys
-import tempfile
 from ctypes import wintypes
 
-from PySide6.QtCore import QAbstractNativeEventFilter, QLockFile, QPoint, QRect, Qt, QTimer
+from PySide6.QtCore import QAbstractNativeEventFilter, QPoint, QRect, Qt, QTimer
+from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtGui import QAction, QColor, QFont, QGuiApplication, QIcon, QImage, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from . import languages as L
+from . import shortcuts
 from .overlay import BAR_H, HANDLE, BarWindow, Bubble, FrameWindow, HandleWindow, physical_rect
 from .settings import MIRROR_FILE, MODELS_DIR, Settings
 from .settings_window import SettingsWindow
@@ -102,8 +103,23 @@ class Controller:
         self.bubble.show()
         self._register_hotkey()
         self._update_label()
-        self.tray.showMessage("Tradutor Pop-up", "Rodando! Clique no botão 文A ou use Ctrl+Shift+T.",
-                              app_icon(), 4000)
+        hello = "Rodando! Clique no botão 文A ou use Ctrl+Shift+T."
+        # Primeira vez: cria o atalho na Área de Trabalho e no menu Iniciar
+        if not self.settings["shortcuts_done"] and shortcuts.program_path():
+            try:
+                shortcuts.create()
+                hello += "\nCriei o atalho \"Tradutor Pop-up\" na Área de Trabalho."
+            except Exception:
+                pass
+            self.settings["shortcuts_done"] = True
+        self.tray.showMessage("Tradutor Pop-up", hello, app_icon(), 5000)
+
+    def on_second_launch(self):
+        """Abriram o atalho com o tradutor já aberto: mostra o quadro (sem abrir outra cópia)."""
+        self.bubble.show()
+        self.bubble.raise_()
+        if not self.open:
+            self.show_box()
 
     # ---------- menu ----------
 
@@ -116,7 +132,7 @@ class Controller:
         s.triggered.connect(self.show_settings)
         m.addAction(s)
         m.addSeparator()
-        q = QAction("Sair", m)
+        q = QAction("⏻  Desligar o tradutor", m)
         q.triggered.connect(self.quit)
         m.addAction(q)
         return m
@@ -225,6 +241,7 @@ class Controller:
             self.settings_win = SettingsWindow(self.settings)
             self.settings_win.setWindowIcon(app_icon())
             self.settings_win.changed.connect(self._on_setting)
+            self.settings_win.quit_requested.connect(self.quit)
         self.settings_win.show()
         self.settings_win.raise_()
         self.settings_win.activateWindow()
@@ -256,9 +273,17 @@ class Controller:
             self.frame.show_message(text)
 
     def quit(self):
+        """Desliga o tradutor por completo (some o 文A e o ícone da bandeja)."""
+        self.close()
         user32.UnregisterHotKey(int(self.bubble.winId()), HOTKEY_ID)
+        for w in (self.bubble, self.settings_win):
+            if w:
+                w.hide()
         self.tray.hide()
         self.app.quit()
+
+
+INSTANCE_NAME = "TradutorPopup-instancia"
 
 
 def main():
@@ -266,9 +291,26 @@ def main():
     app.setQuitOnLastWindowClosed(False)
     app.setApplicationName("Tradutor Pop-up")
     app.setWindowIcon(app_icon())
-    # Só uma cópia aberta por vez
-    lock = QLockFile(os.path.join(tempfile.gettempdir(), "tradutor-popup.lock"))
-    if not lock.tryLock(100):
+
+    # Só uma cópia aberta por vez: se já estiver rodando, avisa a outra cópia para abrir o quadro
+    sock = QLocalSocket()
+    sock.connectToServer(INSTANCE_NAME)
+    if sock.waitForConnected(300):
+        sock.write(b"show")
+        sock.flush()
+        sock.waitForBytesWritten(300)
+        sock.disconnectFromServer()
         return
-    ctrl = Controller(app)  # noqa: F841 (mantém vivo)
+    QLocalServer.removeServer(INSTANCE_NAME)
+    server = QLocalServer()
+    server.listen(INSTANCE_NAME)
+
+    ctrl = Controller(app)
+
+    def on_conn():
+        c = server.nextPendingConnection()
+        if c:
+            c.readyRead.connect(ctrl.on_second_launch)
+            c.disconnected.connect(c.deleteLater)
+    server.newConnection.connect(on_conn)
     sys.exit(app.exec())

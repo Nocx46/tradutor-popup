@@ -70,6 +70,12 @@ arrasta e redimensiona com o mouse, e a tradução em vidro fosco por cima do te
 
 **Instalar:** baixe `TradutorPopup-Windows.zip` nas **Releases**, descompacte em qualquer pasta e
 abra `TradutorPopup.exe`. (Windows 10 versão 2004 ou mais novo / Windows 11.)
+Na primeira vez, o programa cria sozinho o atalho **"Tradutor Pop-up"** na **Área de Trabalho** e no
+**menu Iniciar** — depois é só abrir por ele.
+
+**Desligar:** botão direito no **文A** (ou no ícone perto do relógio) › **⏻ Desligar o tradutor**, ou o
+botão vermelho em ⚙ Configurações. Para usar de novo, abra pelo atalho. (Abrir o atalho com o
+tradutor já ligado só mostra o quadro — não abre outra cópia.)
 
 **Usar:**
 - Clique no **文A** ou aperte **Ctrl+Shift+T** para abrir/fechar o quadro.

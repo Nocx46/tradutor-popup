@@ -14,6 +14,7 @@ DEFAULTS = {
     "box": None,      # [x, y, w, h] em pixels lógicos
     "bubble": None,   # [x, y]
     "mirror": False,  # teste: salva em mirror.png o que o quadro mostra (texto + tradução)
+    "shortcuts_done": False,  # já criou os atalhos na primeira vez?
 }
 
 MIRROR_FILE = os.path.join(DATA_DIR, "mirror.png")
